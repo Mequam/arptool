@@ -12,6 +12,9 @@
 //to use it the program needs to be compiled with the -lparse flag
 #include <parse.h>
 #include "strmac.h"
+#include "help.h"
+#include "version.h"
+
 int makeIp(void* src,void* dest)
 {
 	struct in_addr ip_addr;
@@ -84,12 +87,7 @@ int setSourceMac(void* src,void* dest)
 
 int main(int argc, char ** argv) {
 
-	//make the packet socket and die if the user does not have the proper privlages
-	//no need to parse out arguments if we cant run the program
-	int fd = socket(AF_PACKET,SOCK_DGRAM,htons(ETH_P_ALL));
- 	if (fd == -1)
-	{printf("\033[1;31m[ERROR]\033[0;31m root privliges required!\n");
-	exit(EXIT_FAILURE);}
+
 
 //parsing code
 	//ip address that we query
@@ -139,8 +137,66 @@ int main(int argc, char ** argv) {
 	recv_arg.flag="-r";
 	recv_arg.store=&rec;
 
-	struct arg* destv[6] = {&ip_arg,&sip_arg,&netdev_arg,&seadd_arg,&verb_arg,&recv_arg};
-	parse(argc,argv,6,destv);
+	//does the user want to turn output off?
+	bool quiet=false;
+	struct arg quiet_arg;
+	quiet_arg.type=BOOL;
+	quiet_arg.flag="-q";
+	quiet_arg.store=&quiet;
+
+	bool version=false;
+	struct arg vs_arg;
+	vs_arg.type=BOOL;
+	vs_arg.flag="-V";
+	vs_arg.store=&version;
+	struct arg v_arg;
+	v_arg.type=BOOL;
+	v_arg.flag="--version";
+	v_arg.store=&version;
+
+	//make lots of flags that point to the help argument so that way if a new user is floundering around
+	//they have a better chance of guessing the right help flag
+	bool help=false;
+	struct arg help1_arg;
+	help1_arg.type=BOOL;
+	help1_arg.flag="-h";
+	help1_arg.store=&help;
+	struct arg help2_arg;
+	help2_arg.type=BOOL;
+	help2_arg.flag="--help";
+	help2_arg.store=&help;
+	struct arg help3_arg;
+	help3_arg.type=BOOL;
+	help3_arg.flag="-?";
+	help3_arg.store=&help;
+	
+
+	struct arg* destv[12] = {&help1_arg,&help2_arg,&help3_arg,&vs_arg,&v_arg,&quiet_arg,
+		&ip_arg,&sip_arg,&netdev_arg,&seadd_arg,&verb_arg,&recv_arg};
+	parse(argc,argv,12,destv);
+
+	//user wants to print out a help message
+	if (help) 
+	{	printHelp();
+		exit(EXIT_SUCCESS);
+	}
+	//the user wants to print out the version of the applicantion, print the version and exit
+	if (version)
+	{
+		printVersion();
+		exit(EXIT_SUCCESS);
+	}
+	
+	
+	//make the packet socket and die if the user does not have the proper privlages
+	//no need to run the rest of the program if we dont have privlages
+	int fd = socket(AF_PACKET,SOCK_DGRAM,htons(ETH_P_ALL));
+ 	if (fd == -1)
+	{printf("\033[1;31m[ERROR]\033[0;31m root privliges required!\n");
+	exit(EXIT_FAILURE);}
+
+	//the quiet flag overides the verbose flag to turn it off
+	if (quiet){verbose=false;}
 	if (verbose)
 	{
 		if (netdev_arg.set){printf("\033[1;32m[*]\033[0;00m set netdevice to %s\n",netdev);}
@@ -255,7 +311,11 @@ int main(int argc, char ** argv) {
 		getmac(resp.arp_sha,macstr);
 		printf("\033[1;32m[*]\033[0;32m recived reply from [%s]\n",macstr);
 	}
-	printf("\033[1;32m[*]\033[0;32m completed successfully! :D\n\033[0;00m");
+	if (!quiet)
+	{
+		//we are not quiet the user wants to output inforamation
+		printf("\033[1;32m[*]\033[0;32m completed successfully! :D\n\033[0;00m");
+	}
 	return 1;
 
 }
