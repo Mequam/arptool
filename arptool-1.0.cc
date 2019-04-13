@@ -11,7 +11,7 @@
 //this is a custom library file that parses out user data
 //to use it the program needs to be compiled with the -lparse flag
 #include <parse.h>
-#include "strmac.h";
+#include "strmac.h"
 int makeIp(void* src,void* dest)
 {
 	struct in_addr ip_addr;
