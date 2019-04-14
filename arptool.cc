@@ -170,11 +170,17 @@ int main(int argc, char ** argv) {
 	help3_arg.flag="-?";
 	help3_arg.store=&help;
 	
+	bool at=false;
+	struct arg at_arg;
+	at_arg.flag="-a";
+	at_arg.type=BOOL;
+	at_arg.store=&at;
 
-	struct arg* destv[12] = {&help1_arg,&help2_arg,&help3_arg,&vs_arg,&v_arg,&quiet_arg,
+	struct arg* destv[13] = {&at_arg,&help1_arg,&help2_arg,&help3_arg,&vs_arg,&v_arg,&quiet_arg,
 		&ip_arg,&sip_arg,&netdev_arg,&seadd_arg,&verb_arg,&recv_arg};
-	parse(argc,argv,12,destv);
+	parse(argc,argv,13,destv);
 
+//end of parsing code
 	//user wants to print out a help message
 	if (help) 
 	{	printHelp();
@@ -192,11 +198,14 @@ int main(int argc, char ** argv) {
 	//no need to run the rest of the program if we dont have privlages
 	int fd = socket(AF_PACKET,SOCK_DGRAM,htons(ETH_P_ALL));
  	if (fd == -1)
-	{printf("\033[1;31m[ERROR]\033[0;31m root privliges required!\n");
-	exit(EXIT_FAILURE);}
+	{
+		printf("\033[1;31m[ERROR]\033[0;31m root privliges required!\n");
+		exit(EXIT_FAILURE);
+	}
 
 	//the quiet flag overides the verbose flag to turn it off
-	if (quiet){verbose=false;}
+	if (quiet) {verbose=false;}
+
 	if (verbose)
 	{
 		if (netdev_arg.set){printf("\033[1;32m[*]\033[0;00m set netdevice to %s\n",netdev);}
@@ -205,30 +214,25 @@ int main(int argc, char ** argv) {
 	}
 
 	
-	//this creates a dgram layer 2 socket that will accept all protocols
-	//and gives us a file descripter of that socket which we store into fd
-
 	
 	//initilise our ifreq interface for use with the linux ioctl commands
 	struct ifreq ifr;
-	//copy the interface name that we want to use into the ifr interface
-	//use strlen+1 to account for the null byte
 	memcpy(ifr.ifr_name,netdev,strlen(netdev)+1);
-	//remember that ioctl has to have the address of the structure that it communiates with
-	//this is where we actualy get the index of the device that we want to mess with for use with the ioctl commands in the future
 	if (ioctl(fd,SIOCGIFINDEX,&ifr) == -1)
-	{printf("[ERROR] unable to retrieve interface index, godspeed user\n");
-	 exit(EXIT_FAILURE);}
-	int index = ifr.ifr_ifindex;
+	{
+	 printf("[ERROR] unable to retrieve interface index, godspeed user\n");
+	 exit(EXIT_FAILURE);
+	}
 
 	//create an address that we can use with the packet interface to send low level data
+	//using the device number we just got
 	struct sockaddr_ll addr = {0};
 	addr.sll_family = AF_PACKET;
 	addr.sll_ifindex = ifr.ifr_ifindex;
 	addr.sll_protocol = htons(ETH_P_ARP);	
 	addr.sll_halen = ETHER_ADDR_LEN;
+	//TODO: give the user control over what this address is
 	const unsigned char eth_addr[] = {0xff,0xff,0xff,0xff,0xff,0xff};
-	//copy the above value into the eathernet addr
 	memcpy(addr.sll_addr,eth_addr,sizeof(eth_addr));
 
 	
@@ -241,10 +245,30 @@ int main(int argc, char ** argv) {
 	req.arp_pro = htons(ETH_P_IP);
 	req.arp_hln = ETHER_ADDR_LEN;
 	req.arp_pln = sizeof(in_addr_t);
-	req.arp_op=htons(ARPOP_REQUEST);	
+	//what mode do we want to be in?
+	if (at)
+	{
+
+		req.arp_op=htons(2);
+		if (verbose) 
+		{
+			printf("\033[1;32m[*]\033[0;00m set operation to responce\n");
+		}
+
+	}
+	else
+	{
+		req.arp_op=htons(1);
+		if (verbose) 
+		{
+			printf("\033[1;32m[*]\033[0;00m set operation to recive\n");
+		}
+
+	}
+
 	//this sets the target hardware address to 0, as thats what we are going to end up asking for
 	memset(req.arp_tha,0x00,sizeof(req.arp_tha));
-	//set the target ip address
+	//set the target ip address to the given ip
 	memcpy(req.arp_tpa,&ip,sizeof(ip));
 	//set the source hardware address
 	if (!seadd_arg.set) 
@@ -287,8 +311,12 @@ int main(int argc, char ** argv) {
 		memcpy(req.arp_spa,&sip,sizeof(req.arp_spa));
 		if (verbose) {printf("\033[33;1m[*]\033[33;0m set source protocol address to user defined value\n");}
 	}
+
 	//send the arp request
-	if (verbose){printf("\033[33;1m[*]\033[0;33m sending arp request...\n");}
+	if (verbose)
+	{
+		printf("\033[33;1m[*]\033[0;33m sending arp request...\n");
+	}
 	if (sendto(fd,&req,sizeof(struct ether_arp),0,(struct sockaddr* )&addr,sizeof(struct sockaddr_ll)) == -1 )
 	{
 		printf("\033[1;31m[ERROR]\033[0;31m could not send message!\n");
