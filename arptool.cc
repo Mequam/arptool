@@ -123,12 +123,19 @@ int main(int argc, char ** argv) {
 	seadd_arg.store = (void*)source_eth_addr;
 	seadd_arg.parser=&setSourceMac;
 
-	//do we want verbose output?
+	//do we want to output when the program changes defaults
 	bool verbose;
 	struct arg verb_arg;
 	verb_arg.store=&verbose;
 	verb_arg.flag="-v";
 	verb_arg.type=BOOL;
+	
+	//do we want to output EVERYTHING
+	bool superVerbose;
+	struct arg superVerbose_arg;
+	superVerbose_arg.flag="-vv";
+	superVerbose_arg.type=BOOL;
+	superVerbose_arg.store=&superVerbose;
 
 	//do we want to recive a responce?
 	bool rec;
@@ -154,6 +161,7 @@ int main(int argc, char ** argv) {
 	v_arg.flag="--version";
 	v_arg.store=&version;
 
+
 	//make lots of flags that point to the help argument so that way if a new user is floundering around
 	//they have a better chance of guessing the right help flag
 	bool help=false;
@@ -176,9 +184,9 @@ int main(int argc, char ** argv) {
 	at_arg.type=BOOL;
 	at_arg.store=&at;
 
-	struct arg* destv[13] = {&at_arg,&help1_arg,&help2_arg,&help3_arg,&vs_arg,&v_arg,&quiet_arg,
+	struct arg* destv[14] = {&superVerbose_arg,&at_arg,&help1_arg,&help2_arg,&help3_arg,&vs_arg,&v_arg,&quiet_arg,
 		&ip_arg,&sip_arg,&netdev_arg,&seadd_arg,&verb_arg,&recv_arg};
-	parse(argc,argv,13,destv);
+	parse(argc,argv,14,destv);
 
 //end of parsing code
 	//user wants to print out a help message
@@ -204,13 +212,31 @@ int main(int argc, char ** argv) {
 	}
 
 	//the quiet flag overides the verbose flag to turn it off
-	if (quiet) {verbose=false;}
+	if (quiet) {verbose=false;superVerbose=false;}
 
-	if (verbose)
+	if (verbose || superVerbose)
 	{
-		if (netdev_arg.set){printf("\033[1;32m[*]\033[0;00m set netdevice to %s\n",netdev);}
-		if (ip_arg.set){printf("\033[1;32m[*]\033[0;00m set query address to 0x%x\n",ntohl(ip));}
-		else{printf("\033[1;33m[*]\033[0;33m query address is not set, using 0\n");}
+		//output changes to the netdevice
+		if (netdev_arg.set)
+		{
+			printf("\033[1;32m[*]\033[0;00m set netdevice to %s\n",netdev);
+		}
+		else if (superVerbose)
+		{
+			printf("\033[1;32m[*]\033[0;00m using default netdevice of wlo1\n");
+		}
+		//output the changes to the query address based on verbose flags
+		if (ip_arg.set)
+		{
+			//TODO:make it so that we can output an actual ip address that we are seting
+			printf("\033[1;32m[*]\033[0;00m set query address to 0x%x\n",ntohl(ip));
+		}
+		else if (superVerbose)
+		{
+			//TODO:it would be really cool to make this default to the default gateway
+			//but there would be much learning before that point
+			printf("\033[1;33m[*]\033[0;33m query address is not set, using 0\n");
+		}
 	}
 
 	
@@ -250,18 +276,18 @@ int main(int argc, char ** argv) {
 	{
 
 		req.arp_op=htons(2);
-		if (verbose) 
+		if (verbose || superVerbose) 
 		{
-			printf("\033[1;32m[*]\033[0;00m set operation to responce\n");
+			printf("\033[1;32m[*]\033[0;00m set operation to send and listen\n");
 		}
 
 	}
 	else
 	{
 		req.arp_op=htons(1);
-		if (verbose) 
+		if (superVerbose) 
 		{
-			printf("\033[1;32m[*]\033[0;00m set operation to recive\n");
+			printf("\033[1;32m[*]\033[0;00m set operation to default, send\n");
 		}
 
 	}
@@ -276,20 +302,20 @@ int main(int argc, char ** argv) {
 		//default to using the given network cards address
 		ioctl(fd,SIOCGIFHWADDR,&ifr);
 		memcpy(req.arp_sha,(unsigned char*) &ifr.ifr_hwaddr.sa_data,sizeof(req.arp_sha));
-		if (verbose) 
+		if (superVerbose) 
 		{
 			//this code is for formating the mac address to show the user
 			char strmac[18];
 			strmac[17] = '\x00';
 			getmac(req.arp_sha,strmac);
-			printf("\033[1;32m[*]\033[0;00m set source hardware address to interface address [%s]\n",strmac);
+			printf("\033[1;32m[*]\033[0;00m set source hardware address to default, interface address [%s]\n",strmac);
 		}
 
 	}
 	else
 	{
 		memcpy(req.arp_sha,source_eth_addr,sizeof(req.arp_sha));
-		if (verbose) 
+		if (verbose || superVerbose) 
 		{
 			//this code is for formating the mac address to show the user
 			char strmac[18];
@@ -304,16 +330,16 @@ int main(int argc, char ** argv) {
 	{	//default to using the given network cards ip address
 		ioctl(fd,SIOCGIFADDR,&ifr);
 		memcpy(req.arp_spa,ifr.ifr_addr.sa_data+2,sizeof(req.arp_spa));
-		if (verbose) {printf("\033[32;1m[*]\033[00;0m set source protocol address to %s's address\n",netdev);}
+		if (superVerbose) {printf("\033[32;1m[*]\033[00;0m set source protocol address to %s's address\n",netdev);}
 	}
 	else
 	{       //they supplied us with a source address, store it into the request
 		memcpy(req.arp_spa,&sip,sizeof(req.arp_spa));
-		if (verbose) {printf("\033[33;1m[*]\033[33;0m set source protocol address to user defined value\n");}
+		if (verbose || superVerbose) {printf("\033[33;1m[*]\033[33;0m set source protocol address to user defined value\n");}
 	}
 
 	//send the arp request
-	if (verbose)
+	if (verbose || superVerbose)
 	{
 		printf("\033[33;1m[*]\033[0;33m sending arp request...\n");
 	}
@@ -327,7 +353,7 @@ int main(int argc, char ** argv) {
 	if (rec)
 	{
 		struct ether_arp resp;
-		if (verbose)
+		if (verbose || superVerbose)
 		{
 			printf("\033[1;33m[*]\033[0;33m listinging for responce...\n");
 		}
