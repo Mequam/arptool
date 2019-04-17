@@ -123,6 +123,13 @@ int main(int argc, char ** argv) {
 	seadd_arg.store = (void*)source_eth_addr;
 	seadd_arg.parser=&setSourceMac;
 
+	unsigned char target_eth_addr[6]={0x00,0x00,0x00,0x00,0x00,0x00};
+	struct arg teadd_arg;
+	teadd_arg.flag="-m";
+	teadd_arg.type=CUSTOM;
+	teadd_arg.store = (void*)target_eth_addr;
+	teadd_arg.parser=&setSourceMac;
+
 	//do we want to output when the program changes defaults
 	bool verbose;
 	struct arg verb_arg;
@@ -184,9 +191,9 @@ int main(int argc, char ** argv) {
 	at_arg.type=BOOL;
 	at_arg.store=&at;
 
-	struct arg* destv[14] = {&superVerbose_arg,&at_arg,&help1_arg,&help2_arg,&help3_arg,&vs_arg,&v_arg,&quiet_arg,
+	struct arg* destv[15] = {&teadd_arg,&superVerbose_arg,&at_arg,&help1_arg,&help2_arg,&help3_arg,&vs_arg,&v_arg,&quiet_arg,
 		&ip_arg,&sip_arg,&netdev_arg,&seadd_arg,&verb_arg,&recv_arg};
-	parse(argc,argv,14,destv);
+	parse(argc,argv,15,destv);
 
 //end of parsing code
 	//user wants to print out a help message
@@ -229,13 +236,25 @@ int main(int argc, char ** argv) {
 		if (ip_arg.set)
 		{
 			//TODO:make it so that we can output an actual ip address that we are seting
-			printf("\033[1;32m[*]\033[0;00m set query address to 0x%x\n",ntohl(ip));
+			printf("\033[1;32m[*]\033[0;00m setting target protocol address to 0x%x\n",ntohl(ip));
 		}
 		else if (superVerbose)
 		{
 			//TODO:it would be really cool to make this default to the default gateway
 			//but there would be much learning before that point
 			printf("\033[1;33m[*]\033[0;33m query address is not set, using 0\n");
+		}
+		if (teadd_arg.set)
+		{
+			char strmac[18];
+			strmac[17] = '\x00';
+			getmac(target_eth_addr,strmac);	
+			printf("\033[1;32m[*]\033[0;00m set the target hardware address to [%s]\n",strmac);
+		}
+		else if (superVerbose)
+		{
+			printf("\033[1;32m[*]\033[0;00m defaulting target hardware address to blank [00:00:00:00:00:00]\n");
+
 		}
 	}
 
@@ -257,9 +276,8 @@ int main(int argc, char ** argv) {
 	addr.sll_ifindex = ifr.ifr_ifindex;
 	addr.sll_protocol = htons(ETH_P_ARP);	
 	addr.sll_halen = ETHER_ADDR_LEN;
-	//TODO: give the user control over what this address is
-	const unsigned char eth_addr[] = {0xff,0xff,0xff,0xff,0xff,0xff};
-	memcpy(addr.sll_addr,eth_addr,sizeof(eth_addr));
+	
+	memcpy(addr.sll_addr,target_eth_addr,sizeof(target_eth_addr));
 
 	
 	
