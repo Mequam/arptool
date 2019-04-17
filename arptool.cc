@@ -131,14 +131,14 @@ int main(int argc, char ** argv) {
 	teadd_arg.parser=&setSourceMac;
 
 	//do we want to output when the program changes defaults
-	bool verbose;
+	bool verbose=false;
 	struct arg verb_arg;
 	verb_arg.store=&verbose;
 	verb_arg.flag="-v";
 	verb_arg.type=BOOL;
 	
 	//do we want to output EVERYTHING
-	bool superVerbose;
+	bool superVerbose=false;
 	struct arg superVerbose_arg;
 	superVerbose_arg.flag="-vv";
 	superVerbose_arg.type=BOOL;
@@ -378,7 +378,7 @@ int main(int argc, char ** argv) {
 		recv(fd,&resp,sizeof(struct ether_arp),0);
 		
 		//format and output the recived ip address to the screen
-		char macstr[18];
+		char macstr[18] = "xx:xx:xx:xx:xx:xx";
 		macstr[17] = '\x00';	
 		getmac(resp.arp_sha,macstr);
 		printf("\033[1;32m[*]\033[0;32m recived reply from [%s]\n",macstr);
