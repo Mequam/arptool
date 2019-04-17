@@ -123,7 +123,8 @@ int main(int argc, char ** argv) {
 	seadd_arg.store = (void*)source_eth_addr;
 	seadd_arg.parser=&setSourceMac;
 
-	unsigned char target_eth_addr[6]={0x00,0x00,0x00,0x00,0x00,0x00};
+	//initilise our target hardware address to the broadcast address
+	unsigned char target_eth_addr[6]={0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
 	struct arg teadd_arg;
 	teadd_arg.flag="-m";
 	teadd_arg.type=CUSTOM;
@@ -253,7 +254,7 @@ int main(int argc, char ** argv) {
 		}
 		else if (superVerbose)
 		{
-			printf("\033[1;32m[*]\033[0;00m defaulting target hardware address to blank [00:00:00:00:00:00]\n");
+			printf("\033[1;32m[*]\033[0;00m defaulting target hardware address to broadcast [FF:FF:FF:FF:FF:FF]\n");
 
 		}
 	}
